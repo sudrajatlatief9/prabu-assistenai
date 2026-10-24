@@ -5,7 +5,7 @@ app = FastAPI()
 
 @app.get("/")
 def home():
-    return {"status": "Asisten AI RW Online!"}
+    return {"status": "PRABU Asisten AI Online!"}
 
 # Endpoint Webhook Penerima Pesan Chat (WA / Telegram)
 @app.post("/webhook")
