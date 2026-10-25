@@ -1,35 +1,44 @@
 import os
+import requests
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from openai import OpenAI
 
 app = FastAPI()
 
-# Inisialisasi klien Groq (menggunakan API Key dari environment variable Cloud Run)
+# Konfigurasi API Keys dari Environment Variables Cloud Run
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
     api_key=GROQ_API_KEY
 )
 
-# Struktur data untuk menerima pesan masuk
-class MessageRequest(BaseModel):
-    message: str
-    sender_role: str = "pengurus" # Contoh role: sekretaris, bendahara, it
-
 @app.get("/")
 def home():
-    return {"status": "Asisten AI RW Online & Connected to Hermes/Groq!"}
+    return {"status": "Asisten AI RW Online & Connected to Telegram!"}
 
-@app.post("/webhook-ai")
-async def chat_with_agent(req: MessageRequest):
-    if not GROQ_API_KEY:
-        raise HTTPException(status_code=500, detail="GROQ_API_KEY belum dikonfigurasi di server.")
+# Endpoint Webhook khusus Telegram
+@app.post("/webhook-telegram")
+async def telegram_webhook(request: Request):
+    if not GROQ_API_KEY or not TELEGRAM_BOT_TOKEN:
+        raise HTTPException(status_code=500, detail="API Key belum lengkap di server.")
+    
+    body = await request.json()
+    
+    # Validasi apakah pesan teks dari Telegram
+    if "message" not in body or "text" not in body["message"]:
+        return {"status": "ignored"}
+    
+    chat_id = body["message"]["chat"]["id"]
+    user_message = body["message"]["text"]
+    user_name = body["message"]["from"].get("first_name", "Warga/Pengurus")
     
     try:
-        # System Prompt khusus untuk Asisten Pengurus RW
+        # System Prompt khusus Pengurus RW
         system_instruction = (
-            "Kamu adalah Asisten AI resmi untuk Pengurus RW 026 Kelurahan Pengasinan Kecamatan Rawalumbu, Kota Bekasi. "
+            "Kamu adalah Asisten AI resmi untuk Pengurus RW 026 Pengasinan, Bekasi. "
             "Tugasmu adalah membantu pengurus (Sekretaris, Bendahara, Koordinator IT) dalam hal: "
             "1. Membuat draf surat, pemberitahuan, atau pengumuman warga. "
             "2. Merapikan pencatatan laporan keuangan kas RW. "
@@ -37,22 +46,34 @@ async def chat_with_agent(req: MessageRequest):
             "Gunakan bahasa Indonesia yang profesional, ramah, dan ringkas."
         )
 
-       # Memanggil Model AI dengan model yang stabil
+        # Memanggil AI Groq/Hermes
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant", # Ganti ke model ini
+            model="llama-3.1-8b-instant", # Pastikan model aktif
             messages=[
                 {"role": "system", "content": system_instruction},
-                {"role": "user", "content": f"Peran pengirim: {req.sender_role}. Pesan: {req.message}"}
+                {"role": "user", "content": f"Pengirim: {user_name}. Pesan: {user_message}"}
             ],
             temperature=0.3,
             max_tokens=1024
         )
 
         ai_reply = response.choices[0].message.content
-        return {
-            "status": "success",
-            "reply": ai_reply
-        }
+
+        # Kirim balik jawaban AI ke Telegram Pengguna
+        send_telegram_message(chat_id, ai_reply)
+
+        return {"status": "success"}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print("Error:", str(e))
+        send_telegram_message(chat_id, "Maaf, terjadi kendala saat memproses permintaan Anda.")
+        return {"status": "error", "detail": str(e)}
+
+def send_telegram_message(chat_id: int, text: str):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "Markdown"
+    }
+    requests.post(url, json=payload)
