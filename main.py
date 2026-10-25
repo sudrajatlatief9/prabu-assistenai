@@ -37,9 +37,9 @@ async def chat_with_agent(req: MessageRequest):
             "Gunakan bahasa Indonesia yang profesional, ramah, dan ringkas."
         )
 
-        # Memanggil Model AI (Menggunakan Llama-3 / Hermes-style instruction)
+       # Memanggil Model AI dengan model yang stabil
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile", # Model cepat & cerdas dari Groq
+            model="llama3-70b-8192", # Ganti ke model ini
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": f"Peran pengirim: {req.sender_role}. Pesan: {req.message}"}
