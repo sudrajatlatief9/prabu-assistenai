@@ -77,3 +77,7 @@ def send_telegram_message(chat_id: int, text: str):
         "parse_mode": "Markdown"
     }
     requests.post(url, json=payload)
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=port)
