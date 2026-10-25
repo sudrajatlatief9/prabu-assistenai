@@ -48,7 +48,7 @@ async def telegram_webhook(request: Request):
 
         # Memanggil AI Groq/Hermes
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile", # Pastikan model aktif
+            model="llama-3.1-8b-instant", # Pastikan model aktif
             messages=[
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": f"Pengirim: {user_name}. Pesan: {user_message}"}
